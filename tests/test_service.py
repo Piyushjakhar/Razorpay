@@ -2,7 +2,7 @@ import threading
 
 import pytest
 
-from feature_flags.models import EvaluationContext, FlagConfig
+from feature_flags.models import EvaluationContext, FlagConfig, TargetingRule
 from feature_flags.service import FlagService
 from feature_flags.store import InMemoryConfigStore
 
@@ -131,3 +131,37 @@ class TestEvaluate:
         # Should not raise; spec requires never-throws
         result = service.evaluate("nope", "prod", ctx)
         assert result is None
+
+
+class TestEvaluateWithRules:
+    def test_rule_match_returns_rule_value(self, service):
+        rule = TargetingRule(attribute="country", value="IN", return_value=True)
+        cfg = FlagConfig(
+            name="x",
+            env="prod",
+            type="bool",
+            default_value=False,
+            targeting_rules=(rule,),
+        )
+        service.update_flag(cfg)
+
+        ctx = EvaluationContext(
+            user_id="alice", tenant_id="acme", attributes={"country": "IN"}
+        )
+        assert service.evaluate("x", "prod", ctx) is True
+
+    def test_no_rule_match_returns_default(self, service):
+        rule = TargetingRule(attribute="country", value="IN", return_value=True)
+        cfg = FlagConfig(
+            name="x",
+            env="prod",
+            type="bool",
+            default_value=False,
+            targeting_rules=(rule,),
+        )
+        service.update_flag(cfg)
+
+        ctx = EvaluationContext(
+            user_id="alice", tenant_id="acme", attributes={"country": "US"}
+        )
+        assert service.evaluate("x", "prod", ctx) is False
