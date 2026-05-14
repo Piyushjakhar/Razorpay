@@ -12,12 +12,19 @@ class InMemoryConfigStore:
         self._subscribers: list[Subscriber] = []
         self._lock = threading.RLock()
 
-    def set(self, flag_config: FlagConfig) -> None:
+    def set(self, flag_config: FlagConfig) -> bool:
+        """Monotonic write. Returns True if accepted, False if rejected as stale.
+        Subscribers fire only on accepted writes."""
+        key = (flag_config.env, flag_config.name)
         with self._lock:
-            self._configs[(flag_config.env, flag_config.name)] = flag_config
+            existing = self._configs.get(key)
+            if existing is not None and flag_config.version < existing.version:
+                return False
+            self._configs[key] = flag_config
             subs = list(self._subscribers)
         for sub in subs:
             sub(flag_config)
+        return True
 
     def get(self, flag_name: str, env: str) -> FlagConfig | None:
         with self._lock:

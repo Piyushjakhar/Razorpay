@@ -69,6 +69,31 @@ class TestSubscribe:
         assert received == [v1, v2]
 
 
+class TestMonotonicity:
+    def test_newer_version_accepted(self, store):
+        v0 = FlagConfig(name="x", env="prod", type="int", default_value=10, version=0)
+        v1 = FlagConfig(name="x", env="prod", type="int", default_value=20, version=1)
+        assert store.set(v0) is True
+        assert store.set(v1) is True
+        assert store.get("x", "prod") == v1
+
+    def test_stale_version_rejected(self, store):
+        v0 = FlagConfig(name="x", env="prod", type="int", default_value=10, version=0)
+        v1 = FlagConfig(name="x", env="prod", type="int", default_value=20, version=1)
+        store.set(v1)
+        assert store.set(v0) is False
+        assert store.get("x", "prod") == v1
+
+    def test_stale_write_does_not_fire_subscribers(self, store):
+        received = []
+        store.subscribe(lambda c: received.append(c))
+        v0 = FlagConfig(name="x", env="prod", type="int", default_value=10, version=0)
+        v1 = FlagConfig(name="x", env="prod", type="int", default_value=20, version=1)
+        store.set(v1)
+        store.set(v0)  # stale
+        assert received == [v1]
+
+
 class TestListAll:
     def test_empty_store(self, store):
         assert store.list_all() == []

@@ -16,6 +16,7 @@ class TestFlagConfig:
         assert config.rollout_percentage == 0
         assert config.rollout_value is None
         assert config.bucketing_group is None
+        assert config.version == 0
 
     def test_full_construction(self):
         rule = TargetingRule(attribute="country", value="IN", return_value=True)

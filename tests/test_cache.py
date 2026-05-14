@@ -34,3 +34,38 @@ def test_set_overwrites(cache):
     cache.set(v1)
     cache.set(v2)
     assert cache.get("x", "prod") == v2
+
+
+class TestMonotonicity:
+    def test_newer_version_accepted(self, cache):
+        v0 = FlagConfig(name="x", env="prod", type="int", default_value=10, version=0)
+        v1 = FlagConfig(name="x", env="prod", type="int", default_value=20, version=1)
+        assert cache.set(v0) is True
+        assert cache.set(v1) is True
+        assert cache.get("x", "prod") == v1
+
+    def test_stale_version_rejected(self, cache):
+        v0 = FlagConfig(name="x", env="prod", type="int", default_value=10, version=0)
+        v1 = FlagConfig(name="x", env="prod", type="int", default_value=20, version=1)
+        assert cache.set(v1) is True
+        assert cache.set(v0) is False  # stale
+        assert cache.get("x", "prod") == v1
+
+    def test_same_version_overwrites(self, cache):
+        v0a = FlagConfig(
+            name="x", env="prod", type="int", default_value=10, version=0
+        )
+        v0b = FlagConfig(
+            name="x", env="prod", type="int", default_value=20, version=0
+        )
+        assert cache.set(v0a) is True
+        assert cache.set(v0b) is True
+        assert cache.get("x", "prod") == v0b
+
+    def test_monotonicity_is_per_flag(self, cache):
+        a_v5 = FlagConfig(name="a", env="prod", type="int", default_value=1, version=5)
+        b_v0 = FlagConfig(name="b", env="prod", type="int", default_value=2, version=0)
+        cache.set(a_v5)
+        # b is a different flag — its v=0 is not stale
+        assert cache.set(b_v0) is True
+        assert cache.get("b", "prod") == b_v0

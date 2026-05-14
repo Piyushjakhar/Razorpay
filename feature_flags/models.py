@@ -21,6 +21,7 @@ class FlagConfig:
     rollout_percentage: int = 0
     rollout_value: Any = None
     bucketing_group: str | None = None
+    version: int = 0
 
 
 @dataclass(frozen=True)
